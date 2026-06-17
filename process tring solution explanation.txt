@@ -1,0 +1,499 @@
+# 3614. Process String with Special Operations II
+
+## Problem Overview
+
+You are given a string `s` consisting of lowercase English letters and special characters:
+
+* `*` → Remove the last character from the current string.
+* `#` → Duplicate the current string and append it to itself.
+* `%` → Reverse the current string.
+
+The string is processed from left to right to build a final result string.
+
+Instead of constructing the entire string, the task is to return the character at index `k` in the final result. If `k` is out of bounds, return `'.'`.
+
+---
+
+## Why a Direct Simulation Fails
+
+A straightforward approach would be to build the resulting string while processing every operation.
+
+However:
+
+* The length of the final string can grow up to **10¹⁵**.
+* Operations such as duplication (`#`) can double the string size repeatedly.
+* Storing or constructing such a large string is impossible.
+
+Therefore, we need a more efficient approach that avoids creating the actual string.
+
+---
+
+## Key Observation
+
+We are only interested in **one character** at position `k`.
+
+Instead of constructing the entire string, we can:
+
+1. Track only the **length** of the string after every operation.
+2. Work backwards from the final string to determine which original character produced the k-th position.
+
+This transforms the problem into an index-tracing problem rather than a string-construction problem.
+
+---
+
+# Approach
+
+The solution consists of two phases.
+
+## Phase 1: Compute Lengths
+
+We maintain an array:
+
+```cpp
+len[i]
+```
+
+where:
+
+```text
+len[i] = length of the result after processing first i characters
+```
+
+### Operations
+
+#### Append Character
+
+```text
+result += c
+```
+
+Length increases by 1.
+
+```cpp
+len[i + 1] = len[i] + 1;
+```
+
+---
+
+#### Delete Last Character (`*`)
+
+```text
+abc -> ab
+```
+
+Length decreases by 1 if possible.
+
+```cpp
+len[i + 1] = max(0LL, len[i] - 1);
+```
+
+---
+
+#### Duplicate (`#`)
+
+```text
+abc -> abcabc
+```
+
+Length doubles.
+
+```cpp
+len[i + 1] = len[i] * 2;
+```
+
+---
+
+#### Reverse (`%`)
+
+```text
+abc -> cba
+```
+
+Length remains unchanged.
+
+```cpp
+len[i + 1] = len[i];
+```
+
+---
+
+After processing all operations:
+
+```cpp
+len[n]
+```
+
+represents the final string length.
+
+If:
+
+```cpp
+k >= len[n]
+```
+
+the answer does not exist.
+
+Return:
+
+```cpp
+'.'
+```
+
+---
+
+# Phase 2: Reverse Tracking
+
+Instead of building the final string, we trace the index backwards.
+
+Suppose:
+
+```text
+pos = k
+```
+
+Initially.
+
+We process the operations in reverse order.
+
+---
+
+## Reverse of Appending a Character
+
+Forward:
+
+```text
+abc + d -> abcd
+```
+
+The newly added character occupies:
+
+```text
+index = previous_length
+```
+
+If:
+
+```cpp
+pos == previous_length
+```
+
+then the answer is this character.
+
+Otherwise the position existed before the append operation and remains unchanged.
+
+---
+
+## Reverse of Deletion (`*`)
+
+Forward:
+
+```text
+abcd -> abc
+```
+
+The removed character is always the last one.
+
+Any surviving position remains unchanged.
+
+Therefore:
+
+```cpp
+pos stays the same
+```
+
+---
+
+## Reverse of Duplication (`#`)
+
+Forward:
+
+```text
+abc -> abcabc
+```
+
+Indices:
+
+```text
+0 1 2 3 4 5
+a b c a b c
+```
+
+Both halves are identical.
+
+If:
+
+```text
+pos = 4
+```
+
+it corresponds to:
+
+```text
+4 % 3 = 1
+```
+
+in the original string.
+
+Hence:
+
+```cpp
+pos %= previous_length;
+```
+
+---
+
+## Reverse of Reversal (`%`)
+
+Forward:
+
+```text
+abc -> cba
+```
+
+Indices:
+
+```text
+0 1 2
+c b a
+```
+
+Mapping:
+
+```text
+0 -> 2
+1 -> 1
+2 -> 0
+```
+
+General formula:
+
+```cpp
+pos = length - 1 - pos;
+```
+
+This converts the position in the reversed string back to its original position.
+
+---
+
+# Example Walkthrough
+
+Input:
+
+```text
+s = "a#b%*"
+k = 1
+```
+
+### Forward Length Computation
+
+```text
+a      => length 1
+#      => length 2
+b      => length 3
+%      => length 3
+*      => length 2
+```
+
+Final length:
+
+```text
+2
+```
+
+Since:
+
+```text
+k = 1 < 2
+```
+
+the index is valid.
+
+---
+
+### Backward Trace
+
+Start:
+
+```text
+pos = 1
+```
+
+Process backwards:
+
+```text
+*   -> unchanged
+
+%   -> pos = 3 - 1 - 1 = 1
+
+b   -> pos != previous_length(2)
+
+#   -> pos %= 1 => 0
+
+a   -> pos == previous_length(0)
+```
+
+Answer:
+
+```text
+'a'
+```
+
+---
+
+# Algorithm
+
+### Step 1
+
+Create an array `len`.
+
+Store the string length after every operation.
+
+---
+
+### Step 2
+
+If:
+
+```cpp
+k >= final_length
+```
+
+return:
+
+```cpp
+'.'
+```
+
+---
+
+### Step 3
+
+Set:
+
+```cpp
+pos = k
+```
+
+---
+
+### Step 4
+
+Traverse operations from right to left.
+
+For each operation:
+
+* Letter → check if current position corresponds to that letter.
+* `*` → do nothing.
+* `#` → map position using modulo.
+* `%` → reverse the index.
+
+---
+
+### Step 5
+
+When a letter matches the position, return it.
+
+---
+
+# Correctness Intuition
+
+The algorithm never constructs the actual string.
+
+Instead, it keeps track of how every operation transforms indices.
+
+By reversing these transformations:
+
+* duplication becomes modulo,
+* reversal becomes mirrored indexing,
+* append becomes checking the newly created position,
+
+we can always determine which original character generated the target position.
+
+Thus the algorithm finds the correct character while using only length information.
+
+---
+
+# Complexity Analysis
+
+## Time Complexity
+
+### Length Computation
+
+```text
+O(n)
+```
+
+### Reverse Traversal
+
+```text
+O(n)
+```
+
+Total:
+
+```text
+O(n)
+```
+
+where:
+
+```text
+n = s.length()
+```
+
+---
+
+## Space Complexity
+
+We store:
+
+```cpp
+vector<long long> len(n + 1)
+```
+
+Therefore:
+
+```text
+O(n)
+```
+
+extra space.
+
+---
+
+# Key Concepts Used
+
+* Reverse Simulation
+* Index Mapping
+* String Transformation
+* Mathematical Position Tracking
+* Length Compression
+* Greedy Backtracking of Operations
+
+---
+
+# Why This Solution Is Efficient
+
+Instead of generating a string whose size can reach:
+
+```text
+10^15
+```
+
+characters, we only store:
+
+* lengths of intermediate states
+* a single index being tracked
+
+This reduces the problem from an impossible memory requirement to a simple linear-time solution.
+
+---
+
+## Final Complexity
+
+| Metric | Complexity |
+| ------ | ---------- |
+| Time   | O(n)       |
+| Space  | O(n)       |
+
+This approach efficiently handles the maximum constraints while avoiding construction of the enormous final string.
